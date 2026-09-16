@@ -56,7 +56,43 @@ class LoansPage:
         self.load()
 
     def load(self):
-        pass
+        conn = self.db()
+
+        students = conn.execute(
+            "SELECT id,student_code,name FROM students ORDER BY student_code"
+        ).fetchall()
+        books = conn.execute(
+            "SELECT id,book_code,name,available FROM books ORDER BY book_code"
+        ).fetchall()
+
+        self.smap, self.bmap = {}, {}
+
+        for r in students:
+            self.smap[r["student_code"] + " - " + r["name"]] = r["id"]
+
+        for r in books:
+            if r["available"] > 0:
+                text = r["book_code"] + " - " + r["name"] + " (còn " + str(r["available"]) + ")"
+                self.bmap[text] = r["id"]
+
+        self.student["values"] = list(self.smap)
+        self.book["values"] = list(self.bmap)
+
+        sql = """SELECT l.id,s.student_code||' - '||s.name,
+                 b.book_code||' - '||b.name,l.borrow_date,l.due_date,
+                 COALESCE(l.return_date,''),l.status
+                 FROM loans l JOIN students s ON s.id=l.student_id
+                 JOIN books b ON b.id=l.book_id"""
+
+        rows = conn.execute(sql + " ORDER BY l.id DESC").fetchall()
+
+        self.tree.delete(*self.tree.get_children())
+
+        for r in rows:
+            v = list(r)
+            self.tree.insert("", "end", values=v)
+
+        conn.close()
 
     def borrow(self):
         pass
