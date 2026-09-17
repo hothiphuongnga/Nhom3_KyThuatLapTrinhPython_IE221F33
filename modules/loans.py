@@ -95,7 +95,38 @@ class LoansPage:
         conn.close()
 
     def borrow(self):
-        pass
+        if self.student.get() not in self.smap or self.book.get() not in self.bmap:
+            return messagebox.showwarning("Thông báo", "Chọn sinh viên và sách.")
+
+        try:
+            days = int(self.days.get())
+            if days < 1 or days > 365:
+                raise ValueError
+        except ValueError:
+            return messagebox.showerror("Lỗi", "Số ngày phải từ 1 đến 365.")
+
+        sid, bid = self.smap[self.student.get()], self.bmap[self.book.get()]
+        conn = self.db()
+        book = conn.execute("SELECT available FROM books WHERE id=?", (bid,)).fetchone()
+
+        if not book or book["available"] <= 0:
+            conn.close()
+            return messagebox.showerror("Lỗi", "Sách đã hết.")
+
+        d, due = date.today(), date.today() + timedelta(days=days)
+
+        conn.execute(
+            "INSERT INTO loans(student_id,book_id,borrow_date,due_date,status) VALUES(?,?,?,?,?)",
+            (sid, bid, d.isoformat(), due.isoformat(), "Đang mượn")
+        )
+        conn.execute("UPDATE books SET available=available-1 WHERE id=?", (bid,))
+        conn.commit()
+        conn.close()
+
+        messagebox.showinfo("Thành công", "Mượn sách thành công.\nHạn trả: " + due.strftime("%d/%m/%Y"))
+        self.load()
+        if self.refresh_callback:
+            self.refresh_callback()
 
     def return_book(self):
         pass
