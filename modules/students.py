@@ -4,7 +4,6 @@ from tkinter import messagebox, ttk
 
 
 class StudentsPage:
-    """Lớp quản lý trang sinh viên sử dụng Tkinter và SQLite3."""
 
     def __init__(self, parent, db, refresh_callback=None):
         self._parent = parent
