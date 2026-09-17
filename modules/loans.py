@@ -90,6 +90,8 @@ class LoansPage:
 
         for r in rows:
             v = list(r)
+            if v[6] == "Đang mượn" and datetime.strptime(v[4], "%Y-%m-%d").date() < date.today():
+                v[6] = "QUÁ HẠN"
             self.tree.insert("", "end", values=v)
 
         conn.close()
@@ -129,7 +131,36 @@ class LoansPage:
             self.refresh_callback()
 
     def return_book(self):
-        pass
+        s = self.tree.selection()
+        if not s:
+            return messagebox.showwarning("Thông báo", "Chọn phiếu cần trả.")
+
+        v = self.tree.item(s[0], "values")
+        if v[6] not in ("Đang mượn", "QUÁ HẠN"):
+            return messagebox.showinfo("Thông báo", "Sách này đã được trả.")
+
+        if not messagebox.askyesno("Xác nhận", "Xác nhận trả sách?"):
+            return
+
+        conn = self.db()
+        loan = conn.execute("SELECT book_id FROM loans WHERE id=?", (v[0],)).fetchone()
+
+        if not loan:
+            conn.close()
+            return messagebox.showerror("Lỗi", "Không tìm thấy phiếu mượn.")
+
+        conn.execute(
+            "UPDATE loans SET return_date=?,status='Đã trả' WHERE id=?",
+            (date.today().isoformat(), v[0])
+        )
+        conn.execute("UPDATE books SET available=available+1 WHERE id=?", (loan["book_id"],))
+        conn.commit()
+        conn.close()
+
+        messagebox.showinfo("Thành công", "Trả sách thành công.")
+        self.load()
+        if self.refresh_callback:
+            self.refresh_callback()
 
     def extend_loan(self):
         pass
