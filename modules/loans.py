@@ -84,7 +84,13 @@ class LoansPage:
                  FROM loans l JOIN students s ON s.id=l.student_id
                  JOIN books b ON b.id=l.book_id"""
 
-        rows = conn.execute(sql + " ORDER BY l.id DESC").fetchall()
+        q = "%" + self.search.get().strip() + "%"
+        if self.search.get().strip():
+            sql += """ WHERE s.student_code LIKE ? OR s.name LIKE ?
+                      OR b.book_code LIKE ? OR b.name LIKE ?"""
+            rows = conn.execute(sql + " ORDER BY l.id DESC", (q, q, q, q)).fetchall()
+        else:
+            rows = conn.execute(sql + " ORDER BY l.id DESC").fetchall()
 
         self.tree.delete(*self.tree.get_children())
 
@@ -163,7 +169,32 @@ class LoansPage:
             self.refresh_callback()
 
     def extend_loan(self):
-        pass
+        s = self.tree.selection()
+        if not s:
+            return messagebox.showwarning("Thông báo", "Chọn phiếu cần gia hạn.")
+
+        v = self.tree.item(s[0], "values")
+        if v[6] not in ("Đang mượn", "QUÁ HẠN"):
+            return messagebox.showinfo("Thông báo", "Phiếu này đã được trả.")
+
+        try:
+            days = int(self.days.get())
+            if days < 1 or days > 365:
+                raise ValueError
+        except ValueError:
+            return messagebox.showerror("Lỗi", "Số ngày phải từ 1 đến 365.")
+
+        due = datetime.strptime(v[4], "%Y-%m-%d").date() + timedelta(days=days)
+        conn = self.db()
+        conn.execute("UPDATE loans SET due_date=? WHERE id=?", (due.isoformat(), v[0]))
+        conn.commit()
+        conn.close()
+
+        messagebox.showinfo("Thành công", "Hạn trả mới: " + due.strftime("%d/%m/%Y"))
+        self.load()
+        if self.refresh_callback:
+            self.refresh_callback()
 
     def clear_search(self):
-        pass
+        self.search.set("")
+        self.load()
